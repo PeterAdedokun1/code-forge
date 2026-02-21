@@ -5,10 +5,11 @@
  * the same patient, alerts, language, settings, and risk state.
  */
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { Patient } from '../components/CHEWDashboard';
 import { Alert } from '../components/HospitalAlert';
 import { getSelectedLanguageCode, setSelectedLanguage as setLanguageInStore } from '../lib/languageStore';
+import { useAuth } from './AuthProvider';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -83,6 +84,9 @@ interface MimiState {
     sosTriggered: boolean;
     triggerSOS: () => void;
     clearSOS: () => void;
+
+    // Logout
+    logout: () => Promise<void>;
 }
 
 const MimiContext = createContext<MimiState | null>(null);
@@ -258,9 +262,11 @@ function saveJSON(key: string, value: unknown) {
 // ── Provider ─────────────────────────────────────────────────────
 
 export function MimiProvider({ children }: { children: ReactNode }) {
-    // Demo
-    const [isDemoMode, setIsDemoMode] = useState(true);
-    const [currentPatientId, setCurrentPatientId] = useState('1');
+    const { user, profile, signOut } = useAuth();
+
+    // Demo / Overrides
+    const [isDemoMode, setIsDemoMode] = useState(!user);
+    const [overriddenPatientId, setOverriddenPatientId] = useState<string | null>(null);
     const [patients] = useState<DemoPatient[]>(DEMO_PATIENTS);
     const [alerts, setAlerts] = useState<Alert[]>(DEMO_ALERTS);
 
@@ -310,7 +316,27 @@ export function MimiProvider({ children }: { children: ReactNode }) {
     useEffect(() => { saveJSON('mimi_med_log', medLog); }, [medLog]);
 
     // ── Derived ──
-    const currentPatient = patients.find((p) => p.id === currentPatientId);
+    const currentPatient = useMemo(() => {
+        // 1. If we have a real profile, use it
+        if (profile && !overriddenPatientId) {
+            return {
+                id: profile.id,
+                name: profile.full_name,
+                age: profile.age,
+                gestationalWeek: profile.gestational_week,
+                dueDate: profile.due_date,
+                riskLevel: 'low' as const, // Default, risk engine would update this
+                location: profile.location || '',
+                phone: profile.phone || '',
+                recentSymptoms: [],
+                upcomingReminders: [],
+                folicAcidAdherence: profile.folic_acid_adherence || 0,
+                lastCheckup: profile.last_checkup || 'Just now',
+            };
+        }
+        // 2. Otherwise fallback to demo
+        return patients.find((p) => p.id === (overriddenPatientId || '1'));
+    }, [profile, patients, overriddenPatientId]);
 
     const chewPatients: Patient[] = patients.map((p) => ({
         id: p.id,
@@ -328,7 +354,10 @@ export function MimiProvider({ children }: { children: ReactNode }) {
 
     // ── Actions ──
     const toggleDemoMode = useCallback(() => setIsDemoMode((v) => !v), []);
-    const switchPatient = useCallback((id: string) => setCurrentPatientId(id), []);
+    const switchPatient = useCallback((id: string) => setOverriddenPatientId(id), []);
+    const logout = useCallback(async () => {
+        await signOut();
+    }, [signOut]);
 
     const acknowledgeAlert = useCallback((alertId: string) => {
         setAlerts((prev) =>
@@ -395,6 +424,7 @@ export function MimiProvider({ children }: { children: ReactNode }) {
         kickSessions, addKickSession,
         medLog, toggleMed, getMedStreak,
         sosTriggered, triggerSOS, clearSOS,
+        logout,
     };
 
     return <MimiContext.Provider value={value}>{children}</MimiContext.Provider>;

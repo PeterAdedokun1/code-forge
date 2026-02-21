@@ -6,11 +6,11 @@ import { ProfilePage } from '../pages/ProfilePage';
 import { CHEWPage } from '../pages/CHEWPage';
 import { HospitalPage } from '../pages/HospitalPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { useMimi } from '../context/MimiProvider';
 import { KickCounter } from './KickCounter';
 import { MedicationTracker } from './MedicationTracker';
 import { PregnancyTimeline } from './PregnancyTimeline';
 import { EmergencySOS } from './EmergencySOS';
-import { useMimi } from '../context/MimiProvider';
 
 type UserRole = 'patient' | 'chew' | 'hospital';
 
@@ -21,13 +21,13 @@ interface AppLayoutProps {
 /* ── Patient Bottom Nav (dark themed) ──────────────────────────── */
 const PatientBottomNav = () => {
   const location = useLocation();
-  const { isOnline } = useMimi();
 
   const items = [
     { path: '/', icon: <Mic className="nav-icon" />, label: 'MIMI' },
+    { path: '/journey', icon: <LayoutGrid className="nav-icon" />, label: 'Journey' },
+    { path: '/kicks', icon: <Heart className="nav-icon" />, label: 'Kicks' },
+    { path: '/meds', icon: <Bell className="nav-icon" />, label: 'Meds' },
     { path: '/profile', icon: <User className="nav-icon" />, label: 'Profile' },
-    { path: '/health', icon: <LayoutGrid className="nav-icon" />, label: 'Health' },
-    { path: '/alerts', icon: <Bell className="nav-icon" />, label: 'Alerts' },
   ];
 
   return (
@@ -124,9 +124,10 @@ const NavigationBar = ({ role, isOnline }: { role: UserRole; isOnline: boolean }
           {role === 'patient' && (
             <>
               <DesktopNavLink path="/" icon={<Mic className="w-5 h-5" />} label="MIMI" />
+              <DesktopNavLink path="/journey" icon={<LayoutGrid className="w-5 h-5" />} label="Journey" />
+              <DesktopNavLink path="/kicks" icon={<Heart className="w-5 h-5" />} label="Kicks" />
+              <DesktopNavLink path="/meds" icon={<Bell className="w-5 h-5" />} label="Meds" />
               <DesktopNavLink path="/profile" icon={<User className="w-5 h-5" />} label="Profile" />
-              <DesktopNavLink path="/health" icon={<LayoutGrid className="w-5 h-5" />} label="Health" />
-              <DesktopNavLink path="/alerts" icon={<Bell className="w-5 h-5" />} label="Alerts" />
               <DesktopNavLink path="/settings" icon={<Settings className="w-5 h-5" />} label="Settings" />
             </>
           )}
@@ -199,9 +200,10 @@ const AppLayoutInner = ({ initialRole = 'patient' }: AppLayoutProps) => {
           {role === 'patient' && (
             <>
               <Route path="/" element={<HomePage />} />
+              <Route path="/journey" element={<PregnancyTimeline />} />
+              <Route path="/kicks" element={<KickCounter />} />
+              <Route path="/meds" element={<MedicationTracker />} />
               <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/health" element={<SettingsPage />} />
-              <Route path="/alerts" element={<SettingsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </>
           )}
