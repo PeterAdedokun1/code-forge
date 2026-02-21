@@ -17,6 +17,7 @@
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -50,9 +51,12 @@ body {
 
 /* Custom pulsing animation for mic button */
 @keyframes gentlePulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.4);
   }
+
   50% {
     box-shadow: 0 0 0 20px rgba(236, 72, 153, 0);
   }
@@ -60,4 +64,534 @@ body {
 
 .pulse-ring {
   animation: gentlePulse 2s infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MIMI DARK VOICE INTERFACE
+   ═══════════════════════════════════════════════════════════════ */
+
+.mimi-dark-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: linear-gradient(170deg, #0a0a12 0%, #12091a 40%, #1a0a1e 70%, #0e0510 100%);
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+.mimi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  z-index: 10;
+}
+
+.mimi-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mimi-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #555;
+  transition: background 0.3s;
+}
+
+.mimi-status-dot.active {
+  background: #E91E63;
+  box-shadow: 0 0 8px #E91E63;
+  animation: dotPulse 2s infinite;
+}
+
+@keyframes dotPulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.mimi-header-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: #ccc;
+}
+
+.mimi-icon-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 6px;
+  transition: color 0.2s;
+}
+
+.mimi-icon-btn:hover {
+  color: #fff;
+}
+
+/* ── Greeting ────────────────────────────────────────────────── */
+.mimi-greeting-area {
+  text-align: center;
+  padding: 0 24px;
+  z-index: 5;
+}
+
+.mimi-greeting-text {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.mimi-greeting-sub {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 8px;
+}
+
+/* ── Glowing Orb ─────────────────────────────────────────────── */
+.mimi-orb-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.mimi-orb {
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  position: relative;
+  transition: transform 0.15s ease-out;
+  animation: orbIdle 4s ease-in-out infinite;
+}
+
+.mimi-orb-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #ff4081, #E91E63 40%, #c2185b 70%, #880e4f 100%);
+  box-shadow:
+    0 0 60px rgba(233, 30, 99, 0.5),
+    0 0 120px rgba(233, 30, 99, 0.25),
+    inset 0 0 40px rgba(255, 255, 255, 0.1);
+  filter: blur(1px);
+}
+
+@keyframes orbIdle {
+
+  0%,
+  100% {
+    transform: scale(0.85);
+  }
+
+  50% {
+    transform: scale(0.88);
+  }
+}
+
+.mimi-orb.active {
+  animation: none;
+}
+
+.mimi-orb.active .mimi-orb-inner {
+  box-shadow:
+    0 0 80px rgba(233, 30, 99, 0.6),
+    0 0 160px rgba(233, 30, 99, 0.3),
+    inset 0 0 50px rgba(255, 255, 255, 0.12);
+}
+
+.mimi-orb.speaking .mimi-orb-inner {
+  box-shadow:
+    0 0 100px rgba(233, 30, 99, 0.7),
+    0 0 200px rgba(233, 30, 99, 0.35),
+    inset 0 0 60px rgba(255, 255, 255, 0.15);
+}
+
+.mimi-orb.connecting {
+  animation: orbConnecting 1.5s ease-in-out infinite;
+}
+
+@keyframes orbConnecting {
+
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+
+  50% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+}
+
+/* ── Risk Banner ─────────────────────────────────────────────── */
+.mimi-risk-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.mimi-risk-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.mimi-risk-badge.low {
+  background: rgba(76, 175, 80, 0.2);
+  color: #81c784;
+}
+
+.mimi-risk-badge.medium {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ffb74d;
+}
+
+.mimi-risk-badge.high {
+  background: rgba(244, 67, 54, 0.2);
+  color: #ef5350;
+}
+
+.mimi-risk-score {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Risk Detail Panel ───────────────────────────────────────── */
+.mimi-risk-panel {
+  position: absolute;
+  bottom: 120px;
+  left: 16px;
+  right: 16px;
+  background: rgba(20, 15, 30, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 16px;
+  z-index: 20;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.mimi-risk-panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+}
+
+.mimi-risk-symptoms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mimi-risk-tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.mimi-risk-tag.severe {
+  background: rgba(244, 67, 54, 0.2);
+  color: #ef5350;
+}
+
+.mimi-risk-tag.moderate {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ffb74d;
+}
+
+.mimi-risk-tag.mild {
+  background: rgba(76, 175, 80, 0.2);
+  color: #81c784;
+}
+
+.mimi-risk-recs {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.mimi-risk-recs li {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 2px 0;
+}
+
+.mimi-risk-recs li::before {
+  content: '• ';
+  color: #E91E63;
+}
+
+/* ── Bottom Controls ─────────────────────────────────────────── */
+.mimi-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 24px 0 32px;
+  z-index: 10;
+}
+
+.mimi-ctrl-btn {
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mimi-ctrl-secondary {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mimi-ctrl-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.mimi-mic-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 30px rgba(233, 30, 99, 0.25);
+  transition: all 0.3s;
+}
+
+.mimi-mic-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 40px rgba(233, 30, 99, 0.35);
+}
+
+.mimi-mic-btn:active {
+  transform: scale(0.95);
+}
+
+.mimi-mic-btn.active {
+  animation: micGlow 2s infinite;
+}
+
+.mimi-mic-btn.busy {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.mimi-mic-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@keyframes micGlow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 30px rgba(233, 30, 99, 0.25);
+  }
+
+  50% {
+    box-shadow: 0 0 50px rgba(233, 30, 99, 0.5), 0 0 80px rgba(233, 30, 99, 0.2);
+  }
+}
+
+/* ── Error Banner ────────────────────────────────────────────── */
+.mimi-error-banner {
+  position: absolute;
+  top: 60px;
+  left: 16px;
+  right: 16px;
+  background: rgba(244, 67, 54, 0.15);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  color: #ef5350;
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-align: center;
+  z-index: 15;
+}
+
+/* ── Offline Badge ───────────────────────────────────────────── */
+.mimi-offline-badge {
+  position: absolute;
+  top: 60px;
+  right: 16px;
+  font-size: 11px;
+  color: #ffb74d;
+  background: rgba(255, 152, 0, 0.1);
+  padding: 4px 10px;
+  border-radius: 12px;
+  z-index: 15;
+}
+
+/* ── Chat Overlay ────────────────────────────────────────────── */
+.mimi-chat-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 18, 0.97);
+  backdrop-filter: blur(20px);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+.mimi-chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mimi-chat-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+
+.mimi-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mimi-chat-empty {
+  text-align: center;
+  padding: 40px 0;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mimi-chat-bubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.mimi-chat-bubble.user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, #E91E63, #9c27b0);
+  color: #fff;
+}
+
+.mimi-chat-bubble.assistant {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mimi-chat-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #E91E63;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+}
+
+.mimi-chat-time {
+  display: block;
+  font-size: 10px;
+  opacity: 0.5;
+  margin-top: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK BOTTOM NAV (Patient)
+   ═══════════════════════════════════════════════════════════════ */
+.mimi-bottom-nav {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 64px;
+  background: #0e0a14;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.mimi-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 100%;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.35);
+  transition: color 0.2s;
+  gap: 4px;
+}
+
+.mimi-nav-item:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.mimi-nav-item.active {
+  color: #E91E63;
+}
+
+.mimi-nav-item .nav-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.mimi-nav-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
 }
