@@ -1,7 +1,7 @@
 /**
  * MIMI Risk Engine — Rule-Based Maternal Risk Classifier
  * 
- * Pillar 2: The Intelligence Factor
+ * Maternal Risk Classification Module
  * 
  * Extracts symptoms from conversation text, scores them,
  * and classifies the patient's risk level. Designed to 
@@ -32,112 +32,112 @@ const SYMPTOM_RULES: Array<{
   severity: 'mild' | 'moderate' | 'severe';
   category: string;
 }> = [
-  // Pre-eclampsia indicators (HIGH severity)
-  {
-    name: 'Severe Headache',
-    keywords: ['headache', 'head dey pain', 'head ache', 'head dey spin', 'my head', 'migraine', 'head pain'],
-    baseWeight: 15,
-    severity: 'severe',
-    category: 'pre-eclampsia'
-  },
-  {
-    name: 'Blurred Vision',
-    keywords: ['blurred vision', 'blur', 'eye dey shake', 'see double', 'vision problem', 'eye pain', 'seeing spots', 'flashing light'],
-    baseWeight: 20,
-    severity: 'severe',
-    category: 'pre-eclampsia'
-  },
-  {
-    name: 'Swelling (Edema)',
-    keywords: ['swelling', 'swollen', 'feet big', 'hand swollen', 'face swollen', 'body swelling', 'puffy', 'edema', 'feet dey swell'],
-    baseWeight: 15,
-    severity: 'moderate',
-    category: 'pre-eclampsia'
-  },
-  {
-    name: 'High Blood Pressure',
-    keywords: ['blood pressure', 'bp high', 'hypertension', 'bp dey high', 'pressure high'],
-    baseWeight: 20,
-    severity: 'severe',
-    category: 'pre-eclampsia'
-  },
+    // Pre-eclampsia indicators (HIGH severity)
+    {
+      name: 'Severe Headache',
+      keywords: ['headache', 'head dey pain', 'head ache', 'head dey spin', 'my head', 'migraine', 'head pain'],
+      baseWeight: 15,
+      severity: 'severe',
+      category: 'pre-eclampsia'
+    },
+    {
+      name: 'Blurred Vision',
+      keywords: ['blurred vision', 'blur', 'eye dey shake', 'see double', 'vision problem', 'eye pain', 'seeing spots', 'flashing light'],
+      baseWeight: 20,
+      severity: 'severe',
+      category: 'pre-eclampsia'
+    },
+    {
+      name: 'Swelling (Edema)',
+      keywords: ['swelling', 'swollen', 'feet big', 'hand swollen', 'face swollen', 'body swelling', 'puffy', 'edema', 'feet dey swell'],
+      baseWeight: 15,
+      severity: 'moderate',
+      category: 'pre-eclampsia'
+    },
+    {
+      name: 'High Blood Pressure',
+      keywords: ['blood pressure', 'bp high', 'hypertension', 'bp dey high', 'pressure high'],
+      baseWeight: 20,
+      severity: 'severe',
+      category: 'pre-eclampsia'
+    },
 
-  // Bleeding/Emergency indicators
-  {
-    name: 'Vaginal Bleeding',
-    keywords: ['bleeding', 'blood', 'spotting', 'blood coming', 'blood dey come', 'hemorrhage'],
-    baseWeight: 25,
-    severity: 'severe',
-    category: 'emergency'
-  },
-  {
-    name: 'Severe Abdominal Pain',
-    keywords: ['abdominal pain', 'stomach pain', 'belly pain', 'cramp', 'belle dey pain', 'tummy pain', 'sharp pain'],
-    baseWeight: 18,
-    severity: 'severe',
-    category: 'emergency'
-  },
+    // Bleeding/Emergency indicators
+    {
+      name: 'Vaginal Bleeding',
+      keywords: ['bleeding', 'blood', 'spotting', 'blood coming', 'blood dey come', 'hemorrhage'],
+      baseWeight: 25,
+      severity: 'severe',
+      category: 'emergency'
+    },
+    {
+      name: 'Severe Abdominal Pain',
+      keywords: ['abdominal pain', 'stomach pain', 'belly pain', 'cramp', 'belle dey pain', 'tummy pain', 'sharp pain'],
+      baseWeight: 18,
+      severity: 'severe',
+      category: 'emergency'
+    },
 
-  // Infection indicators
-  {
-    name: 'Fever',
-    keywords: ['fever', 'hot', 'temperature', 'body hot', 'body dey hot', 'chills', 'shivering'],
-    baseWeight: 12,
-    severity: 'moderate',
-    category: 'infection'
-  },
-  {
-    name: 'Painful Urination',
-    keywords: ['painful urination', 'burning pee', 'urine pain', 'uti', 'pee dey pain'],
-    baseWeight: 10,
-    severity: 'moderate',
-    category: 'infection'
-  },
+    // Infection indicators
+    {
+      name: 'Fever',
+      keywords: ['fever', 'hot', 'temperature', 'body hot', 'body dey hot', 'chills', 'shivering'],
+      baseWeight: 12,
+      severity: 'moderate',
+      category: 'infection'
+    },
+    {
+      name: 'Painful Urination',
+      keywords: ['painful urination', 'burning pee', 'urine pain', 'uti', 'pee dey pain'],
+      baseWeight: 10,
+      severity: 'moderate',
+      category: 'infection'
+    },
 
-  // General warning signs
-  {
-    name: 'Dizziness',
-    keywords: ['dizzy', 'dizziness', 'faint', 'head dey spin', 'lightheaded', 'vertigo', 'woozy'],
-    baseWeight: 10,
-    severity: 'moderate',
-    category: 'general'
-  },
-  {
-    name: 'Nausea/Vomiting',
-    keywords: ['nausea', 'vomiting', 'throwing up', 'dey vomit', 'feeling sick', 'nauseous'],
-    baseWeight: 8,
-    severity: 'mild',
-    category: 'general'
-  },
-  {
-    name: 'Fatigue',
-    keywords: ['tired', 'fatigue', 'weak', 'no energy', 'body dey weak', 'exhausted'],
-    baseWeight: 5,
-    severity: 'mild',
-    category: 'general'
-  },
-  {
-    name: 'Reduced Fetal Movement',
-    keywords: ['baby not moving', 'baby no dey move', 'no kick', 'baby quiet', 'less movement', 'reduced movement'],
-    baseWeight: 22,
-    severity: 'severe',
-    category: 'fetal'
-  },
-  {
-    name: 'Difficulty Breathing',
-    keywords: ['breathing', 'breathless', 'short of breath', 'can\'t breathe', 'no fit breathe', 'chest tight'],
-    baseWeight: 15,
-    severity: 'severe',
-    category: 'emergency'
-  },
-  {
-    name: 'Chest Pain',
-    keywords: ['chest pain', 'chest hurt', 'chest dey pain', 'heart pain'],
-    baseWeight: 18,
-    severity: 'severe',
-    category: 'emergency'
-  }
-];
+    // General warning signs
+    {
+      name: 'Dizziness',
+      keywords: ['dizzy', 'dizziness', 'faint', 'head dey spin', 'lightheaded', 'vertigo', 'woozy'],
+      baseWeight: 10,
+      severity: 'moderate',
+      category: 'general'
+    },
+    {
+      name: 'Nausea/Vomiting',
+      keywords: ['nausea', 'vomiting', 'throwing up', 'dey vomit', 'feeling sick', 'nauseous'],
+      baseWeight: 8,
+      severity: 'mild',
+      category: 'general'
+    },
+    {
+      name: 'Fatigue',
+      keywords: ['tired', 'fatigue', 'weak', 'no energy', 'body dey weak', 'exhausted'],
+      baseWeight: 5,
+      severity: 'mild',
+      category: 'general'
+    },
+    {
+      name: 'Reduced Fetal Movement',
+      keywords: ['baby not moving', 'baby no dey move', 'no kick', 'baby quiet', 'less movement', 'reduced movement'],
+      baseWeight: 22,
+      severity: 'severe',
+      category: 'fetal'
+    },
+    {
+      name: 'Difficulty Breathing',
+      keywords: ['breathing', 'breathless', 'short of breath', 'can\'t breathe', 'no fit breathe', 'chest tight'],
+      baseWeight: 15,
+      severity: 'severe',
+      category: 'emergency'
+    },
+    {
+      name: 'Chest Pain',
+      keywords: ['chest pain', 'chest hurt', 'chest dey pain', 'heart pain'],
+      baseWeight: 18,
+      severity: 'severe',
+      category: 'emergency'
+    }
+  ];
 
 // Duration amplifiers — if user mentions how long symptoms lasted
 const DURATION_KEYWORDS: Array<{ keywords: string[]; multiplier: number }> = [

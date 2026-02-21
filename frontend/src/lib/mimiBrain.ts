@@ -1,7 +1,7 @@
 /**
  * MIMI AI Brain — Gemini API Integration
  * 
- * Pillar 1: The Voice-First Conversation
+ * Core Conversation and Audio Engine
  * 
  * Connects to Google Gemini API with a carefully engineered prompt
  * that makes the AI act like MIMI — warm, caring, speaking Pidgin,
