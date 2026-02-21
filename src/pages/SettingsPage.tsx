@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Bell, Globe, Shield, User, Moon, Volume2, Check } from 'lucide-react';
+import { Bell, Globe, Shield, User, Moon, Volume2, Check, LogOut } from 'lucide-react';
 import { useMimi } from '../context/MimiProvider';
+import { useAuth } from '../context/AuthProvider';
 import {
   SUPPORTED_LANGUAGES,
   getSelectedLanguageCode,
@@ -9,6 +10,7 @@ import {
 
 export const SettingsPage = () => {
   const { isDemoMode, toggleDemoMode, currentPatient } = useMimi();
+  const { user, profile, signOut } = useAuth();
   const [selectedLang, setSelectedLang] = useState(getSelectedLanguageCode());
   const [showSaved, setShowSaved] = useState(false);
 
@@ -41,7 +43,16 @@ export const SettingsPage = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
               <input
                 type="text"
-                value={currentPatient?.name || 'User'}
+                value={profile?.full_name || currentPatient?.name || 'User'}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="text"
+                value={user?.email || ''}
                 disabled
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
               />
@@ -50,7 +61,7 @@ export const SettingsPage = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
               <input
                 type="text"
-                value={currentPatient?.age || ''}
+                value={profile?.age || currentPatient?.age || ''}
                 disabled
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
               />
@@ -59,7 +70,7 @@ export const SettingsPage = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
               <input
                 type="text"
-                value={currentPatient?.location || ''}
+                value={profile?.location || currentPatient?.location || ''}
                 disabled
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
               />
@@ -239,8 +250,17 @@ export const SettingsPage = () => {
           </div>
         </div>
 
+        {/* Logout */}
+        <button
+          onClick={signOut}
+          className="w-full bg-white rounded-2xl shadow-lg p-4 flex items-center justify-center space-x-3 hover:bg-red-50 transition-colors group"
+        >
+          <LogOut className="w-5 h-5 text-red-500 group-hover:text-red-600" />
+          <span className="font-semibold text-red-500 group-hover:text-red-600">Log Out</span>
+        </button>
+
         <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
-          <p className="text-sm text-gray-600 mb-2">MIMI Version 1.0.0</p>
+          <p className="text-sm text-gray-600 mb-2">MIMI Version 1.1.0</p>
           <p className="text-xs text-gray-500">
             Built with care for maternal health in Nigeria
           </p>
