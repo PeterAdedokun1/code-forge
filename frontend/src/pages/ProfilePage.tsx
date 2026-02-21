@@ -1,8 +1,8 @@
 import { HealthProfile, HealthProfileData } from '../components/HealthProfile';
-import { useDemoData } from '../hooks/useDemoData';
+import { useMimi } from '../context/MimiProvider';
 
 export const ProfilePage = () => {
-  const { currentPatient } = useDemoData();
+  const { currentPatient } = useMimi();
 
   if (!currentPatient) {
     return (

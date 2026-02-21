@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { CHEWDashboard, Patient } from '../components/CHEWDashboard';
 import { HospitalMap } from '../components/HospitalMap';
 import { CallAlertSimulator } from '../components/CallAlertSimulator';
-import { useDemoData } from '../hooks/useDemoData';
+import { useMimi } from '../context/MimiProvider';
 import { AlertTriangle, Phone } from 'lucide-react';
 
 export const CHEWPage = () => {
-  const { chewPatients } = useDemoData();
+  const { chewPatients } = useMimi();
   const [patients, setPatients] = useState<Patient[]>(chewPatients);
   const [showMap, setShowMap] = useState(false);
   const [showCall, setShowCall] = useState(false);
@@ -24,7 +24,6 @@ export const CHEWPage = () => {
         if (liveAlerts.length > liveAlertCount) {
           setLiveAlertCount(liveAlerts.length);
 
-          // Add live patients from conversation risk data
           const newPatients = [...chewPatients];
           liveAlerts.forEach((alert: any) => {
             const patientName = alert.user_id || 'Current Patient';
@@ -49,7 +48,6 @@ export const CHEWPage = () => {
                 recentSymptoms: symptoms
               });
             } else {
-              // Update existing patient risk level
               newPatients[existingIndex] = {
                 ...newPatients[existingIndex],
                 riskLevel: riskLevel,
@@ -70,9 +68,8 @@ export const CHEWPage = () => {
       }
     };
 
-    // Check every 2 seconds for live updates
     const interval = setInterval(check, 2000);
-    check(); // Initial check
+    check();
 
     return () => clearInterval(interval);
   }, [chewPatients, liveAlertCount]);
@@ -91,7 +88,6 @@ export const CHEWPage = () => {
 
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-pink-50 to-purple-50">
-      {/* Live Alert Banner */}
       {liveAlertCount > 0 && (
         <div className="bg-red-500 text-white px-4 py-3 flex items-center justify-center space-x-2 animate-pulse">
           <AlertTriangle className="w-5 h-5" />
@@ -103,7 +99,6 @@ export const CHEWPage = () => {
 
       <CHEWDashboard patients={patients} chewName="Nurse Adaeze Nwankwo" />
 
-      {/* Quick Actions */}
       <div className="max-w-6xl mx-auto px-4 pb-6 space-y-3">
         <button
           onClick={() => setShowMap(true)}

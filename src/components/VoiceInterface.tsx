@@ -179,20 +179,6 @@ export const VoiceInterface = ({
       localStorage.setItem('mimi_chew_alerts', JSON.stringify(existing));
     }
 
-    const patientName = getMemory()?.userName || 'Current Patient';
-
-    // Sync with Backend
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-    fetch(`${backendUrl}/api/conversations`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: patientName,
-        transcript: text,
-        detected_symptoms: result.detectedSymptoms.map(s => s.symptom)
-      })
-    }).catch(console.error);
-
     localStorage.setItem('mimi_latest_risk', JSON.stringify({
       timestamp: new Date().toISOString(),
       riskScore: result.score, riskLevel: result.level,
