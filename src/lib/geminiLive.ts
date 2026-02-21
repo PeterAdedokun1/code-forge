@@ -202,7 +202,6 @@ export class GeminiLiveSession {
         if (!apiKey) throw new Error('No VITE_GEMINI_API_KEY set');
 
         this._state = 'connecting';
-        this.responseQueue = [];
         this.audioQueue = [];
 
         try {
