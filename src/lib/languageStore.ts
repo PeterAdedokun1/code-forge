@@ -21,24 +21,24 @@ const STORAGE_KEY = 'mimi_language';
 
 export const SUPPORTED_LANGUAGES: LanguageOption[] = [
     {
-        code: 'pidgin',
-        label: 'Pidgin English',
-        flag: '🇳🇬',
-        description: 'Nigerian Pidgin — MIMI\'s default voice',
-        systemPromptFragment: `You speak in a natural mix of Nigerian Pidgin English and standard English.
-Use phrases like "How body?", "Mama", "E go be well", "No worry", "Abeg", "Oya".
-Example: "Eyah sorry Mama! Head dey pain you? How many days e don start?"`,
-        sampleGreeting: 'How body, Mama? I dey here for you! 💕',
-    },
-    {
         code: 'en',
         label: 'English',
-        flag: '🇬🇧',
+        flag: '🇧',
         description: 'Standard English — clear and professional',
         systemPromptFragment: `You speak in clear, warm, and professional standard English.
 Use phrases like "Hello dear", "How are you feeling today?", "Let's look into this together."
 Example: "I'm sorry to hear that! How long have you been experiencing this headache?"`,
         sampleGreeting: 'Hello dear! How are you and baby feeling today? I\'m here for you! 💕',
+    },
+    {
+        code: 'pidgin',
+        label: 'Pidgin English',
+        flag: '🇳🇬',
+        description: 'Nigerian Pidgin — warm and relatable',
+        systemPromptFragment: `You speak in a natural mix of Nigerian Pidgin English and standard English.
+Use phrases like "How body?", "Mama", "E go be well", "No worry", "Abeg", "Oya".
+Example: "Eyah sorry Mama! Head dey pain you? How many days e don start?"`,
+        sampleGreeting: 'How body, Mama? I dey here for you! 💕',
     },
     {
         code: 'yo',
@@ -88,9 +88,9 @@ Example: "Oh ma chère! Vous avez mal à la tête? Depuis combien de jours? Je v
 /** Get the currently selected language code from localStorage */
 export function getSelectedLanguageCode(): string {
     try {
-        return localStorage.getItem(STORAGE_KEY) || 'pidgin';
+        return localStorage.getItem(STORAGE_KEY) || 'en';
     } catch {
-        return 'pidgin';
+        return 'en';
     }
 }
 

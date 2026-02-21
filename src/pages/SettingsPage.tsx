@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Bell, Globe, Shield, User, Moon, Volume2, Check } from 'lucide-react';
-import { useDemoData } from '../hooks/useDemoData';
+import { useMimi } from '../context/MimiProvider';
 import {
   SUPPORTED_LANGUAGES,
   getSelectedLanguageCode,
@@ -8,7 +8,7 @@ import {
 } from '../lib/languageStore';
 
 export const SettingsPage = () => {
-  const { isDemoMode, toggleDemoMode, currentPatient } = useDemoData();
+  const { isDemoMode, toggleDemoMode, currentPatient } = useMimi();
   const [selectedLang, setSelectedLang] = useState(getSelectedLanguageCode());
   const [showSaved, setShowSaved] = useState(false);
 

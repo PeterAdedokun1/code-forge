@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { HospitalAlert } from '../components/HospitalAlert';
 import { HospitalMap } from '../components/HospitalMap';
 import { CallAlertSimulator } from '../components/CallAlertSimulator';
-import { useDemoData } from '../hooks/useDemoData';
+import { useMimi } from '../context/MimiProvider';
 import { Phone, MapPin } from 'lucide-react';
 
 type HospitalView = 'alerts' | 'map' | 'call';
 
 export const HospitalPage = () => {
-  const { alerts, acknowledgeAlert, dismissAlert } = useDemoData();
+  const { alerts, acknowledgeAlert, dismissAlert } = useMimi();
   const [view, setView] = useState<HospitalView>('alerts');
   const [selectedPatientForCall, setSelectedPatientForCall] = useState<string>('');
 
@@ -28,8 +28,8 @@ export const HospitalPage = () => {
           <button
             onClick={handleShowAlerts}
             className={`flex-1 py-2 px-4 rounded-xl text-sm font-semibold transition-all flex items-center justify-center space-x-2 ${view === 'alerts'
-                ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
           >
             <Phone className="w-4 h-4" />
@@ -38,8 +38,8 @@ export const HospitalPage = () => {
           <button
             onClick={handleShowMap}
             className={`flex-1 py-2 px-4 rounded-xl text-sm font-semibold transition-all flex items-center justify-center space-x-2 ${view === 'map'
-                ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
           >
             <MapPin className="w-4 h-4" />
@@ -57,7 +57,6 @@ export const HospitalPage = () => {
             onDismiss={dismissAlert}
             enableSound={true}
           />
-          {/* Demo: Call Alert trigger */}
           {alerts.some(a => a.priority === 'critical' && a.status === 'pending') && (
             <div className="max-w-6xl mx-auto px-4 pb-6">
               <button
@@ -67,9 +66,6 @@ export const HospitalPage = () => {
                 <Phone className="w-6 h-6" />
                 <span>📞 Simulate Nurse Call to Patient</span>
               </button>
-              <p className="text-center text-xs text-gray-500 mt-2">
-                Stretch feature: Shows a nurse calling the high-risk patient
-              </p>
             </div>
           )}
         </>

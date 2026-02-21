@@ -11,6 +11,7 @@
  */
 
 import { GoogleGenAI, Modality } from '@google/genai';
+import { buildSystemPrompt } from './languageStore';
 
 // ── types ────────────────────────────────────────────────────────
 export interface GeminiLiveCallbacks {
@@ -38,29 +39,8 @@ const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
 const MODEL_ID = 'gemini-2.5-flash-native-audio-preview-12-2025';
 
-const MIMI_SYSTEM_INSTRUCTION = `You are MIMI (Maternal Intelligence Medical Interface), a warm, caring AI maternal health companion for pregnant women in Nigeria.
-
-YOUR PERSONALITY:
-- You speak in a natural mix of Nigerian Pidgin English and standard English
-- You are like a caring aunty or big sister who genuinely cares about the mama
-- Use phrases like "How body?", "Mama", "E go be well", "No worry", "Abeg", "Oya"
-- Show deep empathy. If a woman reports pain or worry, acknowledge and comfort FIRST
-- You are NEVER dismissive of any symptom
-- Keep responses SHORT (2-3 sentences max). This is a real-time voice conversation.
-
-YOUR ROLE:
-- Ask about symptoms, how long they have lasted, and how bad they feel
-- Watch for pre-eclampsia red flags: headache + swelling + vision changes → suggest checking BP
-- Gently remind about folic acid, check-ups, and water intake
-- If symptoms sound serious, firmly but lovingly tell her to go to hospital
-- Follow up on symptoms she mentioned earlier in the conversation
-
-RULES:
-- NEVER diagnose. You are a companion, not a doctor.
-- Always recommend seeing a health worker for anything serious
-- Stay hopeful: "We go figure this out together"
-- Use simple words, no medical jargon
-- 2-3 sentences per response ideal — you are speaking, not writing an essay`;
+// System prompt is built dynamically from src/lib/languageStore.ts
+// so it adapts to the user's selected language.
 
 // ── audio helpers ────────────────────────────────────────────────
 
@@ -161,7 +141,7 @@ export class GeminiLiveSession {
 
             const config = {
                 responseModalities: [Modality.AUDIO],
-                systemInstruction: MIMI_SYSTEM_INSTRUCTION,
+                systemInstruction: buildSystemPrompt(),
                 speechConfig: {
                     voiceConfig: {
                         prebuiltVoiceConfig: { voiceName: 'Kore' },
