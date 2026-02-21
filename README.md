@@ -47,17 +47,13 @@ MIMI is a Progressive Web App (PWA) that provides:
 - **Recharts** for data visualization
 - **PWA** with offline support
 
-### Backend (Planned)
+### Backend
 - **Node.js** with Express
-- **WebSocket** for real-time communication
-- **Google Gemini Live API** for AI conversations
-- **Supabase** for database and authentication
+- **Google Gemini Live API** for conversational AI
+- **SQLite** for lightweight local database storage
 
-### Database
-- **PostgreSQL** via Supabase
-- Tables: profiles, conversations, risk_assessments, symptoms, providers, alerts, reminders
-- Row Level Security (RLS) enabled
-- Full audit trail
+### Database Tables
+- `profiles`, `conversations`, `risk_assessments`, `alerts`
 
 ## Getting Started
 
@@ -81,7 +77,8 @@ npm install
 
 3. Set up environment variables
 ```bash
-# .env file is already configured with Supabase credentials
+# Copy .env.example to .env and configure your Gemini API key
+cp .env.example .env
 ```
 
 4. Run development server
@@ -114,30 +111,12 @@ To view different dashboards, add a query parameter:
 - CHEW dashboard: `http://localhost:5173/?role=chew`
 - Hospital alerts: `http://localhost:5173/?role=hospital`
 
-## Database Schema
+## Core Database Structure
 
-### Core Tables
-
-#### profiles
-Patient information including gestational age, due date, and health history
-
-#### conversations
-AI conversation transcripts with detected symptoms and sentiment
-
-#### risk_assessments
-Calculated risk scores with contributing factors
-
-#### symptoms
-Individual symptom reports with severity and duration
-
-#### providers
-Healthcare facilities and community health workers
-
-#### alerts
-Escalation alerts to providers with priority levels
-
-#### reminders
-Medication and appointment reminders
+- `profiles`: Patient information (gestational age, due date, etc.)
+- `conversations`: Transcript history and detected symptoms
+- `risk_assessments`: Calculated risk scores and levels
+- `alerts`: Escalation tickets to community health workers
 
 ## Voice Features
 
@@ -176,23 +155,8 @@ Features when installed:
 
 ## Contributing
 
-This project was built for the Cavista Hackathon. Contributions are welcome!
+This project is open-source. Feel free to open issues or submit PRs.
 
 ## License
 
-MIT License - See LICENSE file for details
-
-## Contact
-
-For questions or support, contact the MIMI team.
-
-## Acknowledgments
-
-- Built for Nigerian mothers
-- Inspired by frontline health workers
-- Powered by Google Gemini AI
-- Data infrastructure by Supabase
-
----
-
-**Made with ❤️ for maternal health in Nigeria**
+MIT License

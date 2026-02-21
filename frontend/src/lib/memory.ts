@@ -1,7 +1,7 @@
 /**
  * MIMI Conversation Memory — localStorage-based context system
  * 
- * Pillar 2: The "Memory" Feature
+ * Core Context Storage Mechanism
  * 
  * Stores conversation history and symptom data in localStorage so
  * that on the next page load, MIMI can greet the user with context

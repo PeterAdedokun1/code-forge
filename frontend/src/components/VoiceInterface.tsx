@@ -13,7 +13,7 @@ import {
 } from '../lib/memory';
 import { GeminiLiveSession, type GeminiLiveCallbacks } from '../lib/geminiLive';
 
-// ── types ────────────────────────────────────────────────────────
+// Types
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -26,12 +26,12 @@ interface VoiceInterfaceProps {
   onNewAlert?: (patientData: any) => void;
 }
 
-// ── component ────────────────────────────────────────────────────
+// Main Component
 export const VoiceInterface = ({
   onRiskUpdate,
   onNewAlert,
 }: VoiceInterfaceProps) => {
-  /* ── state ──────────────────────────────────────────────────── */
+  // State Hooks
   const [interfaceState, setInterfaceState] = useState<
     'idle' | 'listening' | 'processing' | 'speaking' | 'live'
   >('idle');
@@ -54,7 +54,7 @@ export const VoiceInterface = ({
     error, isSupported, startRecording, stopRecording, resetRecording,
   } = useVoiceRecorder();
 
-  /* ── online / offline tracking ──────────────────────────────── */
+  // Online / Offline tracking
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
     const goOffline = () => {
@@ -75,13 +75,13 @@ export const VoiceInterface = ({
     };
   }, []);
 
-  /* ── init memory + voices ───────────────────────────────────── */
+  // Initialize memory and voices
   useEffect(() => {
     initializeMemory();
     preloadVoices();
   }, []);
 
-  /* ── context-aware greeting on first load ───────────────────── */
+  // Context-aware greeting on load
   useEffect(() => {
     if (!hasGreetedRef.current && messages.length === 0) {
       hasGreetedRef.current = true;
@@ -113,12 +113,12 @@ export const VoiceInterface = ({
     }
   }, [messages.length, ttsEnabled, useLiveMode]);
 
-  /* ── auto-scroll ────────────────────────────────────────────── */
+  // Auto-scroll handler
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  /* ── risk helper (shared by both modes) ─────────────────────── */
+  // Risk Engine helper
   const runRiskEngine = useCallback((text: string) => {
     conversationTextRef.current += ' ' + text;
     const result = assessRisk(conversationTextRef.current, 32);
@@ -126,27 +126,29 @@ export const VoiceInterface = ({
     if (result.detectedSymptoms.length > 0) setShowRiskPanel(true);
     onRiskUpdate?.(result);
 
+    const mem = getMemory();
+    const patientName = mem?.userName || 'Current Patient';
+
+    // Sync with Backend
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+    fetch(`${backendUrl}/api/conversations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: patientName,
+        transcript: text,
+        detected_symptoms: result.detectedSymptoms.map(s => s.symptom)
+      })
+    }).catch(console.error);
+
     if (result.escalationRequired) {
-      const mem = getMemory();
       onNewAlert?.({
-        patientName: mem?.userName || 'Patient',
+        patientName: patientName,
         riskScore: result.score,
         riskLevel: result.level,
         symptoms: result.detectedSymptoms.map((s) => s.symptom),
         riskType: result.riskFactors[0] || 'Unknown',
       });
-      const alertData = {
-        timestamp: new Date().toISOString(),
-        riskScore: result.score,
-        riskLevel: result.level,
-        symptoms: result.detectedSymptoms.map((s) => s.symptom),
-        escalation: true,
-        patientName: mem?.userName || 'Current Patient',
-        id: `live_alert_${Date.now()}`,
-      };
-      const existing = JSON.parse(localStorage.getItem('mimi_chew_alerts') || '[]');
-      existing.push(alertData);
-      localStorage.setItem('mimi_chew_alerts', JSON.stringify(existing));
     }
 
     localStorage.setItem('mimi_latest_risk', JSON.stringify({
@@ -154,14 +156,12 @@ export const VoiceInterface = ({
       riskScore: result.score, riskLevel: result.level,
       symptoms: result.detectedSymptoms.map((s) => s.symptom),
       escalation: result.escalationRequired,
-      patientName: getMemory()?.userName || 'Current Patient',
+      patientName: patientName,
     }));
     return result;
   }, [onRiskUpdate, onNewAlert]);
 
-  /* ══════════════════════════════════════════════════════════════
-     GEMINI LIVE MODE
-     ═══════════════════════════════════════════════════════════ */
+  // --- GEMINI LIVE MODE ---
   const startLive = useCallback(async () => {
     if (liveSessionRef.current) return;
 
@@ -246,9 +246,7 @@ export const VoiceInterface = ({
     setInterfaceState('idle');
   }, []);
 
-  /* ══════════════════════════════════════════════════════════════
-     OFFLINE / FALLBACK MODE (Web Speech API + local brain)
-     ═══════════════════════════════════════════════════════════ */
+  // --- OFFLINE / FALLBACK MODE ---
   const processMessageOffline = useCallback(async (userText: string) => {
     if (!userText.trim()) return;
 
@@ -284,7 +282,7 @@ export const VoiceInterface = ({
     }
   }, [messages, runRiskEngine, ttsEnabled]);
 
-  /* ── mic button handler ─────────────────────────────────────── */
+  // Microphone toggle handler
   const handleMicrophoneClick = async () => {
     // Live mode toggle
     if (useLiveMode) {
@@ -313,7 +311,7 @@ export const VoiceInterface = ({
     }
   };
 
-  /* ── text input ─────────────────────────────────────────────── */
+  // Text input handler
   const [textInput, setTextInput] = useState('');
   const handleTextSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -334,7 +332,7 @@ export const VoiceInterface = ({
     }
   };
 
-  /* ── reset ──────────────────────────────────────────────────── */
+  // Reset conversation
   const handleReset = () => {
     stopLive();
     clearMemory();
@@ -347,12 +345,12 @@ export const VoiceInterface = ({
     localStorage.removeItem('mimi_chew_alerts');
   };
 
-  /* ── cleanup ────────────────────────────────────────────────── */
+  // Cleanup effects
   useEffect(() => {
     return () => { liveSessionRef.current?.disconnect(); };
   }, []);
 
-  /* ── render helpers ─────────────────────────────────────────── */
+  // Render Helpers
   const getButtonContent = () => {
     if (useLiveMode && liveConnected) {
       if (interfaceState === 'speaking') return {
@@ -413,11 +411,11 @@ export const VoiceInterface = ({
   const btn = getButtonContent();
   const isPulsing = interfaceState === 'listening' || (useLiveMode && liveConnected);
 
-  /* ── JSX ────────────────────────────────────────────────────── */
+  // Main Render
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50">
 
-      {/* ── online / offline badge ───────────────────────────── */}
+      {/* Online / Offline badge */}`
       <div className={`px-3 py-1.5 text-center text-xs font-semibold flex items-center justify-center space-x-1.5
         ${isOnline ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}>
         {isOnline
@@ -425,7 +423,7 @@ export const VoiceInterface = ({
           : <><WifiOff className="w-3.5 h-3.5" /><span>Offline Mode — responses from local AI</span></>}
       </div>
 
-      {/* ── risk banner ──────────────────────────────────────── */}
+      {/* Risk Banner */}
       {currentRisk && currentRisk.detectedSymptoms.length > 0 && (
         <div
           className={`bg-gradient-to-r ${getRiskColor(currentRisk.level)} text-white px-4 py-3 cursor-pointer transition-all`}
@@ -445,7 +443,7 @@ export const VoiceInterface = ({
         </div>
       )}
 
-      {/* ── risk detail panel ─────────────────────────────────── */}
+      {/* Risk Detail Panel */}
       {showRiskPanel && currentRisk && (
         <div className="bg-white border-b border-gray-200 px-4 py-4 max-h-48 overflow-y-auto">
           <div className="max-w-lg mx-auto">
@@ -453,8 +451,8 @@ export const VoiceInterface = ({
             <div className="flex flex-wrap gap-2 mb-3">
               {currentRisk.detectedSymptoms.map((s, i) => (
                 <span key={i} className={`text-xs px-2 py-1 rounded-full font-medium ${s.severity === 'severe' ? 'bg-red-100 text-red-700'
-                    : s.severity === 'moderate' ? 'bg-yellow-100 text-yellow-700'
-                      : 'bg-green-100 text-green-700'
+                  : s.severity === 'moderate' ? 'bg-yellow-100 text-yellow-700'
+                    : 'bg-green-100 text-green-700'
                   }`}>{s.symptom}</span>
               ))}
             </div>
@@ -472,7 +470,7 @@ export const VoiceInterface = ({
         </div>
       )}
 
-      {/* ── chat messages ─────────────────────────────────────── */}
+      {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
         {error && (
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
@@ -504,8 +502,8 @@ export const VoiceInterface = ({
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
           >
             <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${message.role === 'user'
-                ? 'bg-gradient-to-br from-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/20'
-                : 'bg-white text-gray-800 shadow-lg shadow-gray-200/50 border border-gray-100'
+              ? 'bg-gradient-to-br from-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/20'
+              : 'bg-white text-gray-800 shadow-lg shadow-gray-200/50 border border-gray-100'
               }`}>
               {message.role === 'assistant' && (
                 <div className="flex items-center space-x-2 mb-1">
@@ -525,7 +523,7 @@ export const VoiceInterface = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ── input area ────────────────────────────────────────── */}
+      {/* Input Area */}
       <div className="border-t border-gray-200/50 bg-white/80 backdrop-blur-md">
         {/* Visualizer (offline mode only) */}
         {interfaceState === 'listening' && !useLiveMode && (
@@ -625,8 +623,8 @@ export const VoiceInterface = ({
                 setUseLiveMode(!useLiveMode);
               }}
               className={`mt-3 text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${useLiveMode
-                  ? 'bg-green-100 text-green-700 border border-green-300'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                ? 'bg-green-100 text-green-700 border border-green-300'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                 }`}
             >
               {useLiveMode ? '🟢 Live Mode ON' : '⚡ Enable Live Mode'}

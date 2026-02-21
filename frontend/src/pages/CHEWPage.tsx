@@ -12,43 +12,51 @@ export const CHEWPage = () => {
   const [showCall, setShowCall] = useState(false);
   const [liveAlertCount, setLiveAlertCount] = useState(0);
 
-  // Poll localStorage for live risk updates from voice conversations
+  // Poll backend for live risk updates from voice conversations
   useEffect(() => {
-    const check = () => {
+    const check = async () => {
       try {
-        const liveAlerts = JSON.parse(localStorage.getItem('mimi_chew_alerts') || '[]');
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+        const res = await fetch(`${backendUrl}/api/alerts`);
+        const data = await res.json();
+        const liveAlerts = data.alerts || [];
+
         if (liveAlerts.length > liveAlertCount) {
           setLiveAlertCount(liveAlerts.length);
 
           // Add live patients from conversation risk data
           const newPatients = [...chewPatients];
-          liveAlerts.forEach((alert: any, index: number) => {
-            const existingIndex = newPatients.findIndex(p => p.name === alert.patientName);
+          liveAlerts.forEach((alert: any) => {
+            const patientName = alert.user_id || 'Current Patient';
+            const riskLevel = alert.risk_level || 'high';
+            const symptoms = alert.symptoms ? JSON.parse(alert.symptoms) : [];
+
+            const existingIndex = newPatients.findIndex(p => p.name === patientName);
             if (existingIndex === -1) {
               newPatients.unshift({
-                id: `live_${index}`,
-                name: alert.patientName || 'Current Patient',
+                id: `live_${alert.alert_id}`,
+                name: patientName,
                 age: 28,
                 gestationalWeek: 32,
-                riskLevel: alert.riskLevel || 'high',
+                riskLevel: riskLevel,
                 lastConversation: 'Just now (via MIMI voice)',
                 pendingActions: 2,
                 location: 'Current Session',
                 phone: '+234-800-000-0000',
                 riskHistory: [
-                  { date: 'Today', score: alert.riskScore || 75 }
+                  { date: 'Today', score: alert.risk_score || 75 }
                 ],
-                recentSymptoms: alert.symptoms || []
+                recentSymptoms: symptoms
               });
             } else {
               // Update existing patient risk level
               newPatients[existingIndex] = {
                 ...newPatients[existingIndex],
-                riskLevel: alert.riskLevel || newPatients[existingIndex].riskLevel,
+                riskLevel: riskLevel,
                 lastConversation: 'Just now (via MIMI voice)',
-                pendingActions: alert.riskLevel === 'high' ? 3 : 1,
+                pendingActions: riskLevel === 'high' ? 3 : 1,
                 recentSymptoms: [
-                  ...alert.symptoms,
+                  ...symptoms,
                   ...newPatients[existingIndex].recentSymptoms
                 ].slice(0, 5)
               };
