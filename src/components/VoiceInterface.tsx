@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Mic, X, AlertCircle, MessageSquare,
   Loader2, Heart,
@@ -11,6 +11,30 @@ import {
   initializeMemory, clearMemory, getMemory,
 } from '../lib/memory';
 import { GeminiLiveSession, type GeminiLiveCallbacks } from '../lib/geminiLive';
+
+// ── ambient particles ────────────────────────────────────────────
+const PARTICLE_COUNT = 12;
+interface Particle {
+  id: number;
+  x: number; // % from left
+  y: number; // % from top
+  size: number; // px
+  duration: number; // seconds
+  delay: number; // seconds
+  opacity: number;
+}
+
+function generateParticles(): Particle[] {
+  return Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+    id: i,
+    x: 15 + Math.random() * 70,
+    y: 15 + Math.random() * 60,
+    size: 2 + Math.random() * 4,
+    duration: 6 + Math.random() * 8,
+    delay: Math.random() * 5,
+    opacity: 0.15 + Math.random() * 0.25,
+  }));
+}
 
 // ── types ────────────────────────────────────────────────────────
 interface Message {
@@ -392,23 +416,59 @@ export const VoiceInterface = ({
   };
 
   const orbScale = getOrbScale();
+
+  // Memoize particles so they don't regenerate on every render
+  const particles = useMemo(() => generateParticles(), []);
+
+  // Smooth audio level for orb glow intensity
+  const glowIntensity = interfaceState === 'speaking'
+    ? 0.6 + audioLevel * 0.4
+    : interfaceState === 'listening' && liveConnected
+      ? 0.3 + audioLevel * 0.7
+      : 0.2;
   const isActive = liveConnected || isRecording;
 
   /* ── JSX ────────────────────────────────────────────────────── */
   return (
     <div className="mimi-dark-screen">
+
+      {/* ── ambient floating particles ─────────────────────────── */}
+      <div className="mimi-particles" aria-hidden="true">
+        {particles.map((p) => (
+          <div
+            key={p.id}
+            className="mimi-particle"
+            style={{
+              left: `${p.x}%`,
+              top: `${p.y}%`,
+              width: `${p.size}px`,
+              height: `${p.size}px`,
+              opacity: isActive ? p.opacity * 1.5 : p.opacity,
+              animationDuration: `${p.duration}s`,
+              animationDelay: `${p.delay}s`,
+            }}
+          />
+        ))}
+      </div>
+
       {/* ── header ─────────────────────────────────────────────── */}
       <div className="mimi-header">
         <div className="mimi-header-left">
           <span className={`mimi-status-dot ${isActive ? 'active' : ''}`} />
           <span className="mimi-header-title">MIMI LIVE</span>
+          {liveConnected && (
+            <span className="mimi-live-badge">CONNECTED</span>
+          )}
         </div>
         <button
-          className="mimi-icon-btn"
+          className="mimi-icon-btn mimi-chat-toggle"
           onClick={() => setShowChat(!showChat)}
           title="Chat transcript"
         >
           <MessageSquare className="w-5 h-5" />
+          {messages.length > 0 && (
+            <span className="mimi-msg-badge">{messages.length}</span>
+          )}
         </button>
       </div>
 
@@ -417,16 +477,31 @@ export const VoiceInterface = ({
         <h1 className="mimi-greeting-text">
           {getTimeGreeting()}, {userName}
         </h1>
-        <p className="mimi-greeting-sub">{statusText}</p>
+        <p key={statusText} className="mimi-greeting-sub mimi-fade-in">{statusText}</p>
       </div>
 
-      {/* ── glowing orb ────────────────────────────────────────── */}
+      {/* ── glowing orb with rings ──────────────────────────────── */}
       <div className="mimi-orb-container">
+        {/* Outer glow rings */}
+        <div
+          className={`mimi-orb-ring ring-1 ${isActive ? 'active' : ''}`}
+          style={{ opacity: glowIntensity * 0.3 }}
+        />
+        <div
+          className={`mimi-orb-ring ring-2 ${isActive ? 'active' : ''}`}
+          style={{ opacity: glowIntensity * 0.15 }}
+        />
+
+        {/* Main orb */}
         <div
           className={`mimi-orb ${isActive ? 'active' : ''} ${interfaceState === 'speaking' ? 'speaking' : ''} ${interfaceState === 'connecting' ? 'connecting' : ''}`}
-          style={{ transform: `scale(${orbScale})` }}
+          style={{
+            transform: `scale(${orbScale})`,
+            filter: `blur(${isActive ? 0.5 : 1}px) brightness(${0.9 + glowIntensity * 0.3})`,
+          }}
         >
           <div className="mimi-orb-inner" />
+          <div className="mimi-orb-sheen" />
         </div>
       </div>
 
@@ -469,11 +544,20 @@ export const VoiceInterface = ({
         </div>
       )}
 
+      {/* ── typing indicator ────────────────────────────────────── */}
+      {(interfaceState === 'processing' || interfaceState === 'connecting') && (
+        <div className="mimi-typing-indicator">
+          <span className="mimi-typing-dot" />
+          <span className="mimi-typing-dot" />
+          <span className="mimi-typing-dot" />
+        </div>
+      )}
+
       {/* ── bottom controls ────────────────────────────────────── */}
       <div className="mimi-controls">
         {/* Cancel / End button */}
         <button
-          className="mimi-ctrl-btn mimi-ctrl-secondary"
+          className={`mimi-ctrl-btn mimi-ctrl-secondary ${isActive ? 'mimi-ctrl-cancel-active' : ''}`}
           onClick={handleCancel}
           title="End session"
         >
@@ -481,16 +565,19 @@ export const VoiceInterface = ({
         </button>
 
         {/* Main mic button */}
-        <button
-          className={`mimi-mic-btn ${isActive ? 'active' : ''} ${interfaceState === 'connecting' || interfaceState === 'processing' ? 'busy' : ''}`}
-          onClick={handleMicrophoneClick}
-          disabled={interfaceState === 'processing'}
-        >
-          {interfaceState === 'connecting' || interfaceState === 'processing'
-            ? <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#E91E63' }} />
-            : <Mic className="w-8 h-8" style={{ color: '#E91E63' }} />
-          }
-        </button>
+        <div className="mimi-mic-wrapper">
+          {isActive && <div className="mimi-mic-pulse-ring" />}
+          <button
+            className={`mimi-mic-btn ${isActive ? 'active' : ''} ${interfaceState === 'connecting' || interfaceState === 'processing' ? 'busy' : ''}`}
+            onClick={handleMicrophoneClick}
+            disabled={interfaceState === 'processing'}
+          >
+            {interfaceState === 'connecting' || interfaceState === 'processing'
+              ? <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#E91E63' }} />
+              : <Mic className="w-8 h-8" style={{ color: '#E91E63' }} />
+            }
+          </button>
+        </div>
 
         {/* Alert / info button */}
         <button
@@ -499,6 +586,9 @@ export const VoiceInterface = ({
           title="Health alerts"
         >
           <AlertCircle className="w-5 h-5" />
+          {currentRisk && currentRisk.level === 'high' && (
+            <span className="mimi-alert-dot" />
+          )}
         </button>
       </div>
 
@@ -540,13 +630,20 @@ export const VoiceInterface = ({
                 <p>No messages yet. Start speaking to MIMI.</p>
               </div>
             )}
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <div
                 key={message.id}
-                className={`mimi-chat-bubble ${message.role}`}
+                className={`mimi-chat-bubble ${message.role} mimi-bubble-enter`}
+                style={{ animationDelay: `${Math.min(index * 0.05, 0.3)}s` }}
               >
                 {message.role === 'assistant' && (
-                  <span className="mimi-chat-label">MIMI</span>
+                  <div className="mimi-chat-avatar-row">
+                    <span className="mimi-chat-avatar">💕</span>
+                    <span className="mimi-chat-label">MIMI</span>
+                  </div>
+                )}
+                {message.role === 'user' && (
+                  <span className="mimi-chat-label mimi-chat-label-user">You</span>
                 )}
                 <p>{message.content}</p>
                 <span className="mimi-chat-time">
@@ -554,6 +651,20 @@ export const VoiceInterface = ({
                 </span>
               </div>
             ))}
+            {/* Typing indicator in chat */}
+            {liveConnected && interfaceState === 'speaking' && (
+              <div className="mimi-chat-bubble assistant mimi-bubble-enter">
+                <div className="mimi-chat-avatar-row">
+                  <span className="mimi-chat-avatar">💕</span>
+                  <span className="mimi-chat-label">MIMI</span>
+                </div>
+                <div className="mimi-chat-typing">
+                  <span className="mimi-typing-dot" />
+                  <span className="mimi-typing-dot" />
+                  <span className="mimi-typing-dot" />
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
         </div>

@@ -91,26 +91,26 @@ function computeRMS(buffer: Float32Array): number {
 }
 
 /**
- * Downsample an AudioBuffer to the target sample-rate using an
- * OfflineAudioContext (accurate, browser-native resampling).
+ * Downsample audio synchronously using linear interpolation.
+ * Much faster than OfflineAudioContext (no async overhead, no context creation).
  */
-async function downsample(
+function downsampleLinear(
     buffer: Float32Array,
     fromRate: number,
     toRate: number,
-): Promise<Float32Array> {
+): Float32Array {
     if (fromRate === toRate) return buffer;
-    const ratio = toRate / fromRate;
-    const newLength = Math.round(buffer.length * ratio);
-    const offCtx = new OfflineAudioContext(1, newLength, toRate);
-    const src = offCtx.createBufferSource();
-    const audioBuf = offCtx.createBuffer(1, buffer.length, fromRate);
-    audioBuf.getChannelData(0).set(buffer);
-    src.buffer = audioBuf;
-    src.connect(offCtx.destination);
-    src.start();
-    const rendered = await offCtx.startRendering();
-    return rendered.getChannelData(0);
+    const ratio = fromRate / toRate;
+    const newLength = Math.round(buffer.length / ratio);
+    const result = new Float32Array(newLength);
+    for (let i = 0; i < newLength; i++) {
+        const srcIndex = i * ratio;
+        const lo = Math.floor(srcIndex);
+        const hi = Math.min(lo + 1, buffer.length - 1);
+        const frac = srcIndex - lo;
+        result[i] = buffer[lo] * (1 - frac) + buffer[hi] * frac;
+    }
+    return result;
 }
 
 // ── AudioWorklet processor inline code ──────────────────────────
@@ -137,8 +137,7 @@ export class GeminiLiveSession {
     private scriptNode: ScriptProcessorNode | null = null;
     private callbacks: GeminiLiveCallbacks;
 
-    // Queues (following official docs pattern)
-    private responseQueue: any[] = [];
+    // Audio playback queue
     private audioQueue: Float32Array[] = [];
 
     private _state: LiveSessionState = 'idle';
@@ -149,9 +148,11 @@ export class GeminiLiveSession {
     private modelTranscriptBuffer = '';
     private userTranscriptBuffer = '';
 
-    // Playback scheduling
+    // Playback scheduling — non-blocking approach
     private nextPlaybackTime = 0;
-    private currentSourceNode: AudioBufferSourceNode | null = null;
+    private activeSources: Set<AudioBufferSourceNode> = new Set();
+    private playbackDrainInterval: ReturnType<typeof setInterval> | null = null;
+    private modelAudioEndTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // Audio level (for orb visualizer)
     private _audioLevel = 0;
@@ -181,7 +182,6 @@ export class GeminiLiveSession {
         if (!apiKey) throw new Error('No VITE_GEMINI_API_KEY set');
 
         this._state = 'connecting';
-        this.responseQueue = [];
         this.audioQueue = [];
 
         try {
@@ -202,18 +202,17 @@ export class GeminiLiveSession {
                 realtimeInputConfig: {
                     automaticActivityDetection: {
                         disabled: false,
-                        startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
+                        startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
                         endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
                         prefixPaddingMs: 20,
-                        silenceDurationMs: 500,
+                        silenceDurationMs: 300,
                     },
                 },
             };
 
-            // Start message processing loops BEFORE connecting
+            // Start playback drain BEFORE connecting
             this._loopsRunning = true;
-            this.runMessageLoop();
-            this.runPlaybackLoop();
+            this.startPlaybackDrain();
 
             this.session = await ai.live.connect({
                 model: MODEL_ID,
@@ -226,8 +225,8 @@ export class GeminiLiveSession {
                         this.callbacks.onConnected?.();
                     },
                     onmessage: (message: any) => {
-                        // Push into queue — loops will process
-                        this.responseQueue.push(message);
+                        // Process directly — no queue delay
+                        this.processMessage(message);
                     },
                     onerror: (e: any) => {
                         console.error('[GeminiLive] error', e);
@@ -257,127 +256,168 @@ export class GeminiLiveSession {
         }
     }
 
-    // ── message loop (official docs pattern) ──────────────────────
-    private async runMessageLoop(): Promise<void> {
-        while (this._loopsRunning) {
-            if (this.responseQueue.length === 0) {
-                await new Promise((r) => setTimeout(r, 16)); // ~60fps polling
-                continue;
-            }
+    // ── process incoming messages directly (zero-delay) ──────────
+    //
+    // Instead of pushing to a responseQueue polled at 16ms, we process
+    // each message synchronously in the onmessage callback. Audio
+    // chunks go directly into the audioQueue and trigger an immediate
+    // drain, eliminating up to 32ms of polling delay (16ms queue + 16ms drain).
+    //
+    private processMessage(message: any): void {
+        const sc = message?.serverContent;
+        if (!sc) return;
 
-            const message = this.responseQueue.shift();
-            const sc = message?.serverContent;
-            if (!sc) continue;
+        // ── interruption ──────────────────────────────────────
+        if (sc.interrupted) {
+            this.audioQueue.length = 0;
+            this.stopCurrentPlayback();
+            this._state = 'listening';
+            this.callbacks.onInterrupted?.();
+            return;
+        }
 
-            // ── interruption ──────────────────────────────────────
-            if (sc.interrupted) {
-                // Clear all queued audio immediately
-                this.audioQueue.length = 0;
-                this.stopCurrentPlayback();
-                this._state = 'listening';
-                this.callbacks.onInterrupted?.();
-                continue;
-            }
-
-            // ── model audio data ──────────────────────────────────
-            if (sc.modelTurn?.parts) {
-                for (const part of sc.modelTurn.parts) {
-                    if (part.inlineData?.data) {
-                        const float32 = pcm16Base64ToFloat32(part.inlineData.data);
-                        this.audioQueue.push(float32);
-                    }
-                }
-            }
-
-            // ── output transcription (model's words) ──────────────
-            if (sc.outputTranscription?.text) {
-                this.modelTranscriptBuffer += sc.outputTranscription.text;
-            }
-
-            // ── input transcription (user's words) ────────────────
-            if (sc.inputTranscription?.text) {
-                this.userTranscriptBuffer += sc.inputTranscription.text;
-            }
-
-            // ── turn complete — flush transcription buffers ────────
-            if (sc.turnComplete) {
-                if (this.userTranscriptBuffer.trim()) {
-                    this.callbacks.onUserTranscript?.(this.userTranscriptBuffer.trim());
-                    this.userTranscriptBuffer = '';
-                }
-                if (this.modelTranscriptBuffer.trim()) {
-                    this.callbacks.onModelTranscript?.(this.modelTranscriptBuffer.trim());
-                    this.modelTranscriptBuffer = '';
+        // ── model audio data ──────────────────────────────────
+        let hasNewAudio = false;
+        if (sc.modelTurn?.parts) {
+            for (const part of sc.modelTurn.parts) {
+                if (part.inlineData?.data) {
+                    const float32 = pcm16Base64ToFloat32(part.inlineData.data);
+                    this.audioQueue.push(float32);
+                    hasNewAudio = true;
                 }
             }
         }
+
+        // ── output transcription (model's words) ──────────────
+        if (sc.outputTranscription?.text) {
+            this.modelTranscriptBuffer += sc.outputTranscription.text;
+        }
+
+        // ── input transcription (user's words) ────────────────
+        if (sc.inputTranscription?.text) {
+            this.userTranscriptBuffer += sc.inputTranscription.text;
+        }
+
+        // ── turn complete — flush transcription buffers ────────
+        if (sc.turnComplete) {
+            if (this.userTranscriptBuffer.trim()) {
+                this.callbacks.onUserTranscript?.(this.userTranscriptBuffer.trim());
+                this.userTranscriptBuffer = '';
+            }
+            if (this.modelTranscriptBuffer.trim()) {
+                this.callbacks.onModelTranscript?.(this.modelTranscriptBuffer.trim());
+                this.modelTranscriptBuffer = '';
+            }
+        }
+
+        // Trigger immediate drain if we got new audio — don't wait for interval
+        if (hasNewAudio) {
+            this.drainAudioQueue();
+        }
     }
 
-    // ── playback loop (official docs pattern) ─────────────────────
-    private async runPlaybackLoop(): Promise<void> {
-        while (this._loopsRunning) {
-            if (this.audioQueue.length === 0) {
-                // If we were speaking and queue is now empty, signal end
-                if (this._state === 'modelSpeaking') {
-                    // Wait a tiny bit for more chunks that might be in flight
-                    await new Promise((r) => setTimeout(r, 100));
+    // ── playback drain (non-blocking, gapless) ─────────────────────
+    //
+    // Instead of a blocking while-loop with setTimeout (which causes
+    // micro-gaps → audio cracking), we use a setInterval that runs at
+    // ~60fps. Each tick, we drain ALL available audio chunks in a single
+    // pass and schedule them on the Web Audio timeline. The browser's
+    // audio engine handles sample-accurate timing — zero JS timer jitter.
+    //
+    private startPlaybackDrain(): void {
+        if (this.playbackDrainInterval) return;
+        this.playbackDrainInterval = setInterval(() => this.drainAudioQueue(), 16);
+    }
+
+    private stopPlaybackDrain(): void {
+        if (this.playbackDrainInterval) {
+            clearInterval(this.playbackDrainInterval);
+            this.playbackDrainInterval = null;
+        }
+    }
+
+    private drainAudioQueue(): void {
+        if (this.audioQueue.length === 0) {
+            // Nothing to play — check if we should signal end of model audio
+            if (this._state === 'modelSpeaking' && !this.modelAudioEndTimeout) {
+                this.modelAudioEndTimeout = setTimeout(() => {
                     if (this.audioQueue.length === 0 && this._state === 'modelSpeaking') {
                         this._state = 'listening';
                         this.callbacks.onModelAudioEnd?.();
                     }
-                }
-                await new Promise((r) => setTimeout(r, 16));
-                continue;
+                    this.modelAudioEndTimeout = null;
+                }, 150);
             }
-
-            // Signal start of model audio
-            if (this._state !== 'modelSpeaking') {
-                this._state = 'modelSpeaking';
-                this.callbacks.onModelAudioStart?.();
-            }
-
-            // Ensure playback context
-            if (!this.playbackCtx || this.playbackCtx.state === 'closed') {
-                this.playbackCtx = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
-            }
-            if (this.playbackCtx.state === 'suspended') {
-                await this.playbackCtx.resume();
-            }
-
-            const chunk = this.audioQueue.shift()!;
-
-            // Create audio buffer
-            const buffer = this.playbackCtx.createBuffer(1, chunk.length, OUTPUT_SAMPLE_RATE);
-            buffer.getChannelData(0).set(chunk);
-
-            const sourceNode = this.playbackCtx.createBufferSource();
-            sourceNode.buffer = buffer;
-            sourceNode.connect(this.playbackCtx.destination);
-            this.currentSourceNode = sourceNode;
-
-            // Schedule gapless playback
-            const now = this.playbackCtx.currentTime;
-            const startTime = Math.max(now, this.nextPlaybackTime);
-            sourceNode.start(startTime);
-            this.nextPlaybackTime = startTime + buffer.duration;
-
-            // Wait for chunk to finish playing
-            const waitMs = (this.nextPlaybackTime - now) * 1000;
-            if (waitMs > 0) {
-                await new Promise((r) => setTimeout(r, waitMs));
-            }
+            return;
         }
+
+        // Cancel pending end-of-audio signal since we have new data
+        if (this.modelAudioEndTimeout) {
+            clearTimeout(this.modelAudioEndTimeout);
+            this.modelAudioEndTimeout = null;
+        }
+
+        // Signal start of model audio
+        if (this._state !== 'modelSpeaking') {
+            this._state = 'modelSpeaking';
+            this.callbacks.onModelAudioStart?.();
+        }
+
+        // Ensure playback context
+        if (!this.playbackCtx || this.playbackCtx.state === 'closed') {
+            this.playbackCtx = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+        }
+        if (this.playbackCtx.state === 'suspended') {
+            this.playbackCtx.resume();
+            return; // let it resume, drain on next tick
+        }
+
+        // Merge all queued chunks into a single buffer for this drain pass.
+        // This minimizes the number of AudioBufferSourceNodes and eliminates
+        // any possibility of tiny gaps between individual chunks.
+        const chunks = this.audioQueue.splice(0, this.audioQueue.length);
+        let totalLength = 0;
+        for (const c of chunks) totalLength += c.length;
+
+        const merged = new Float32Array(totalLength);
+        let offset = 0;
+        for (const c of chunks) {
+            merged.set(c, offset);
+            offset += c.length;
+        }
+
+        // Create a single AudioBuffer for the merged data
+        const buffer = this.playbackCtx.createBuffer(1, merged.length, OUTPUT_SAMPLE_RATE);
+        buffer.getChannelData(0).set(merged);
+
+        const sourceNode = this.playbackCtx.createBufferSource();
+        sourceNode.buffer = buffer;
+        sourceNode.connect(this.playbackCtx.destination);
+
+        // Track active sources for cleanup
+        this.activeSources.add(sourceNode);
+        sourceNode.onended = () => {
+            this.activeSources.delete(sourceNode);
+        };
+
+        // Schedule gapless playback on the Web Audio timeline
+        const now = this.playbackCtx.currentTime;
+        const startTime = Math.max(now + 0.005, this.nextPlaybackTime); // 5ms safety margin
+        sourceNode.start(startTime);
+        this.nextPlaybackTime = startTime + buffer.duration;
     }
 
-    /** Stop current audio playback (on interruption). */
+    /** Stop all current audio playback (on interruption). */
     private stopCurrentPlayback(): void {
-        try {
-            this.currentSourceNode?.stop();
-        } catch {
-            // may already be stopped
+        for (const src of this.activeSources) {
+            try { src.stop(); } catch { /* may already be stopped */ }
         }
-        this.currentSourceNode = null;
+        this.activeSources.clear();
         this.nextPlaybackTime = 0;
+        if (this.modelAudioEndTimeout) {
+            clearTimeout(this.modelAudioEndTimeout);
+            this.modelAudioEndTimeout = null;
+        }
     }
 
     // ── text input (fallback) ────────────────────────────────────
@@ -455,27 +495,16 @@ export class GeminiLiveSession {
     }
 
     /** Process raw mic data: compute level, downsample, send to API */
-    private async handleMicData(raw: Float32Array, actualRate: number): Promise<void> {
+    private handleMicData(raw: Float32Array, actualRate: number): void {
         if (!this._alive || !this.session) return;
 
         // Compute audio level for visualizer
         this._audioLevel = Math.min(1, computeRMS(raw) * 5);
 
-        // Don't send audio while model is speaking (let VAD handle interruption naturally)
-        // Actually, we DO send — the server-side VAD needs the audio to detect interruption.
-        let pcmData: Float32Array;
-        if (actualRate !== INPUT_SAMPLE_RATE) {
-            try {
-                pcmData = await downsample(raw, actualRate, INPUT_SAMPLE_RATE);
-            } catch {
-                pcmData = raw; // best effort
-            }
-        } else {
-            pcmData = raw;
-        }
-
-        // Double-check alive after potential async downsample
-        if (!this._alive || !this.session) return;
+        // Synchronous linear downsample — zero async overhead
+        const pcmData = actualRate !== INPUT_SAMPLE_RATE
+            ? downsampleLinear(raw, actualRate, INPUT_SAMPLE_RATE)
+            : raw;
 
         const base64 = float32ToPcm16Base64(pcmData);
         try {
@@ -526,6 +555,7 @@ export class GeminiLiveSession {
         this._loopsRunning = false;
         this.stopMicCapture();
         this.stopCurrentPlayback();
+        this.stopPlaybackDrain();
         try {
             if (this.playbackCtx && this.playbackCtx.state !== 'closed') {
                 this.playbackCtx.close().catch(() => { });
@@ -538,7 +568,6 @@ export class GeminiLiveSession {
         } catch {
             // best effort teardown
         }
-        this.responseQueue = [];
         this.audioQueue = [];
         this._state = 'idle';
     }
